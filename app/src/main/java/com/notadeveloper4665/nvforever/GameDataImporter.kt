@@ -79,8 +79,12 @@ object GameDataImporter {
             )
         }
 
+        // Recover from a process death between the two directory renames. Never discard
+        // the last completed import if it is the only surviving copy.
+        if (backup.exists()) {
+            if (!destination.exists()) backup.renameTo(destination) else deleteTree(backup)
+        }
         deleteTree(staging)
-        deleteTree(backup)
         if (!staging.mkdirs() && !staging.isDirectory) {
             throw ImportException("Could not create the temporary import directory")
         }
@@ -92,7 +96,6 @@ object GameDataImporter {
                 context = context,
                 source = dataTree,
                 target = staging,
-                relative = "",
                 cancelled = cancelled,
                 onFile = {
                     copiedFiles++
@@ -136,7 +139,7 @@ object GameDataImporter {
         }
     }
 
-    private data class Entry(val document: DocumentFile, val relative: String, val isDirectory: Boolean, val length: Long)
+    private data class Entry(val isDirectory: Boolean, val length: Long)
 
     private fun enumerate(root: DocumentFile, cancelled: AtomicBoolean): List<Entry> {
         val out = ArrayList<Entry>()
@@ -150,10 +153,10 @@ object GameDataImporter {
                 }
                 val relative = if (prefix.isEmpty()) name else "$prefix/$name"
                 if (child.isDirectory) {
-                    out += Entry(child, relative, true, 0L)
+                    out += Entry(true, 0L)
                     visit(child, relative)
                 } else if (child.isFile) {
-                    out += Entry(child, relative, false, child.length())
+                    out += Entry(false, child.length())
                 }
             }
         }
@@ -165,7 +168,6 @@ object GameDataImporter {
         context: Context,
         source: DocumentFile,
         target: File,
-        relative: String,
         cancelled: AtomicBoolean,
         onFile: () -> Unit,
         onChunk: (Long) -> Unit
@@ -180,7 +182,7 @@ object GameDataImporter {
             }
             val output = File(target, name)
             if (child.isDirectory) {
-                copyDirectory(context, child, output, if (relative.isEmpty()) name else "$relative/$name", cancelled, onFile, onChunk)
+                copyDirectory(context, child, output, cancelled, onFile, onChunk)
             } else if (child.isFile) {
                 context.contentResolver.openInputStream(child.uri)?.use { input ->
                     FileOutputStream(output).use { stream ->
