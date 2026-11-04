@@ -15,7 +15,7 @@ class EngineActivity : GameActivity() {
             ?: File(filesDir, "game-data").absolutePath
         val homeDir = File(filesDir, "nvforever").absolutePath
         val schemaDir = File(filesDir, "engine-schemas").absolutePath
-        copyAssetTree("schemas", File(schemaDir))
+        copyAssetTree("", File(schemaDir))
 
         // Os.setenv changes this process environment, which Rust std::env reads after
         // the native library is started by GameActivity.
