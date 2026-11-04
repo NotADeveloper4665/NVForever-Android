@@ -35,10 +35,12 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri != null) {
-            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
             try {
-                contentResolver.takePersistableUriPermission(uri, flags)
+                // takePersistableUriPermission accepts READ/WRITE mode flags, not the
+                // persistable-grant request flag. Keep the game tree read-only.
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
                 gameTree = uri
                 getSharedPreferences("installation", MODE_PRIVATE)
                     .edit().putString("tree_uri", uri.toString()).apply()
