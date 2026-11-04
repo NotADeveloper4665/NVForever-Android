@@ -29,6 +29,7 @@ Do not create a fake JNI library or enable the Launch button until it actually s
 ## Current implemented Android boundary
 
 - Kotlin owns the SAF folder permission and validates the base master file.
+- A cancellable importer stages the complete Data tree into app-private storage, verifies the copied master and BSA archives, and swaps the completed directory into place without writing to the original game installation.
 - The selected tree is retained as a URI, not converted into a guessed filesystem path.
 - The launcher can enumerate connected Android game controllers and observe key/axis activity for diagnostics.
 - Controller diagnostics are not yet forwarded into Bevy gameplay actions.
@@ -37,3 +38,13 @@ Do not create a fake JNI library or enable the Launch button until it actually s
 ## Validation gates
 
 A successful Gradle build proves only that the Android shell packages. A successful Rust cross-build proves only that native code compiles. Engine startup, game-data loading, main-menu reachability and playable gameplay must each be tested and reported separately.
+
+## Current hard blocker (do not paper over it)
+
+The pinned upstream source contains no Android project or Android-specific entry point. Its game executable is currently a desktop binary target with a large `main.rs` that owns argument parsing, installation setup, Bevy window creation, and the game runtime. The existing `nvforever` package is not currently exposed as an Android `cdylib` library. Merely adding Bevy's `android-game-activity` Cargo feature or adding a GameActivity dependency to Gradle does not produce a loadable engine library.
+
+The engine also has platform-specific assumptions that must be audited before ARM64 Android compilation: direct `wgpu`/Vulkan HAL and `ash` usage for window presentation and memory reporting, desktop window-mode/monitor APIs, engine-home/config discovery, schema paths relative to the checkout, and a path-based VFS. Android integration needs a real upstream engine refactor or a maintained fork, not a dummy JNI library.
+
+The upstream engine is pinned as an external Git submodule. This repository's current GitHub write integration can change this Android wrapper repository, but cannot commit edits inside the upstream submodule's Git repository. To finish the native port, the engine source must first be moved to a writable maintained fork or vendored into this repository with its GPL-3.0-or-later notices and full source history preserved. Then the Android target can refactor the game entry point into a `cdylib`, enable Bevy 0.20.1's Android GameActivity backend, replace desktop-only startup/window code, pass app-private paths and schemas, and add a SAF/VFS bridge.
+
+Until those steps are complete, the Launch control must remain disabled. A shell APK or a placeholder shared library is not a playable game.
