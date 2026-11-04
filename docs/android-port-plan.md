@@ -1,5 +1,15 @@
 # Android port plan
 
+## Progress update
+
+- M0 Android shell: Gradle debug packaging passed in GitHub Actions on the initial scaffold commit. The Kotlin launcher now also has SAF validation and controller diagnostics; the latest revisions are being rebuilt.
+- Upstream source: pinned as a Git submodule at `upstream/NVForever`. Clone with `--recurse-submodules`.
+- M1 Android engine build: not complete. The upstream Bevy workspace is pinned to Bevy 0.20.1, but the desktop executable has not been converted to an Android GameActivity entry point or cross-compiled.
+- M2 SAF: persistent read-only tree selection and base-master/BSA detection are implemented in the Kotlin shell. The engine VFS does not yet consume the SAF tree.
+- M3–M5: not complete; no engine scene or gameplay has been run on Android.
+
+A green shell build must not be described as an engine build or playable APK.
+
 ## Baseline
 
 The upstream NVForever repository is a clean-room Rust/Bevy implementation. Its engine is a substantial desktop codebase, not an Android-ready application. The Android port must preserve the upstream clean-room and no-game-data rules.
