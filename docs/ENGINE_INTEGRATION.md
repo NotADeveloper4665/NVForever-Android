@@ -15,9 +15,9 @@ The submodule is source code only. It does not contain Fallout game data. Do not
 
 The upstream Bevy workspace lives in `upstream/NVForever/engine` and pins Bevy to `=0.20.1`. The root format crates are separate from that Bevy workspace. The upstream README's documented executable is a desktop application. Adding the source tree to this repository does not make its desktop binary an Android activity.
 
-Before wiring an Android native library, the port must establish all of the following against the exact pinned Bevy revision:
+The pinned engine uses Bevy `=0.20.1`. Bevy 0.20.1 documents Android GameActivity support and a `cargo-ndk` plus Gradle packaging flow; this gives the port a supported direction, but does not automatically adapt the existing desktop executable. See the [Bevy 0.20.1 Android build instructions](https://docs.rs/crate/bevy/0.20.1/source/examples/README.md) and [Bevy Android feature list](https://docs.rs/crate/bevy/0.20.1/source/docs/cargo_features.md).\n\nThe existing launcher is a regular AndroidX `ComponentActivity`. Bevy's GameActivity integration requires its own compatible activity/runtime entry point. The intended design is to keep the Kotlin launcher for SAF selection and diagnostics, then open a dedicated engine activity only after the native library, SAF bridge, and lifecycle are ready. Do not simply load the engine library into the current activity.\n\nBefore wiring an Android native library, the port must establish all of the following against the exact pinned Bevy revision:
 
-1. The supported Android entry point and native activity lifecycle.
+1. The supported Android GameActivity entry point and native activity lifecycle, including the required Gradle/AndroidX GameActivity glue.
 2. The Android target features and renderer backend required by Bevy 0.20.1.
 3. The NDK/API level and native dependency compatibility for ARM64.
 4. A bridge from Android's Storage Access Framework to the engine's VFS. A `content://` URI is not a POSIX path and must never be passed to path-based code as if it were one.
