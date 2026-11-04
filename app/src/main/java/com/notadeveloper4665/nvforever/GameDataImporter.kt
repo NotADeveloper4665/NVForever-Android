@@ -41,7 +41,7 @@ object GameDataImporter {
     class ImportException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
     /**
-     * Performs an atomic import into filesDir/game-data/Data.
+     * Performs an atomic import into filesDir/game-data (the Data root).
      * Call from a worker thread. Cancellation is checked between chunks and files.
      */
     fun import(
@@ -94,8 +94,7 @@ object GameDataImporter {
                 target = staging,
                 relative = "",
                 cancelled = cancelled,
-                onFile = { fileBytes ->
-                    copiedBytes += fileBytes
+                onFile = {
                     copiedFiles++
                     onProgress(Progress(copiedBytes, totalBytes, copiedFiles, totalFiles))
                 },
@@ -168,7 +167,7 @@ object GameDataImporter {
         target: File,
         relative: String,
         cancelled: AtomicBoolean,
-        onFile: (Long) -> Unit,
+        onFile: () -> Unit,
         onChunk: (Long) -> Unit
     ) {
         checkCancelled(cancelled)
@@ -186,17 +185,15 @@ object GameDataImporter {
                 context.contentResolver.openInputStream(child.uri)?.use { input ->
                     FileOutputStream(output).use { stream ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 8)
-                        var fileBytes = 0L
                         while (true) {
                             checkCancelled(cancelled)
                             val read = input.read(buffer)
                             if (read < 0) break
                             stream.write(buffer, 0, read)
-                            fileBytes += read
                             onChunk(read.toLong())
                         }
                         stream.fd.sync()
-                        onFile(0L)
+                        onFile()
                     }
                 } ?: throw ImportException("Android could not open ${child.name}")
             }
