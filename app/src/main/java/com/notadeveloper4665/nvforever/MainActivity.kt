@@ -4,6 +4,7 @@ import android.content.Intent
 import android.hardware.input.InputManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -16,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.documentfile.provider.DocumentFile
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Android launcher and platform boundary.
@@ -202,6 +204,7 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         importButton.isEnabled = true
         importButton.text = "CANCEL IMPORT"
         status.text = "Preparing private game-data import…"
+        val lastUiUpdate = AtomicLong(0L)
         importWorker = Thread {
             try {
                 val destination = GameDataImporter.import(applicationContext, uri, importCancelled) { p ->
