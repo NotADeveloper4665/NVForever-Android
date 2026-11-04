@@ -1,4 +1,4 @@
 [submodule "upstream/NVForever"]
 	path = upstream/NVForever
-	url = https://github.com/RedZeroGotcha/NVForever-Android.git
+	url = https://github.com/NotADeveloper4665/NVForever-Android-Engine.git
 	branch = main
