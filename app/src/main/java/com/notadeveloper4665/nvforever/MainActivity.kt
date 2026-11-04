@@ -181,8 +181,9 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     private fun refreshControllers() {
         val devices = inputManager.inputDeviceIds
-            .mapNotNull { inputManager.getInputDevice(it) }
-            .filter { isController(it) }
+            .map { id -> inputManager.getInputDevice(id) }
+            .filterNotNull()
+            .filter { device -> isController(device) }
         controllerStatus.text = if (devices.isEmpty()) {
             "CONTROLLER: none connected · native gameplay mapping not integrated"
         } else {
