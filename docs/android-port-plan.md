@@ -103,3 +103,7 @@ Map Android touch controls to the existing game actions. Physical controllers sh
 - Preserve upstream GPL-3.0-or-later notices and clean-room requirements.
 - Do not weaken or rewrite upstream parity tests to make Android changes pass.
 - Distinguish build success, engine startup, game-data loading and actual gameplay; they are separate milestones.
+
+## Android staging update
+
+The launcher now has a cancellable, progress-reporting import path that stages the selected game Data directory into app-private storage. This resolves the URI-versus-filesystem-path mismatch for a future path-based VFS, but the staged directory is not yet consumed by the engine. The native engine remains blocked on a maintained writable engine fork and the Android GameActivity/cdylib refactor.
