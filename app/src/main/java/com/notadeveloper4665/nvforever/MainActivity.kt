@@ -4,8 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
-import android.view.KeyEvent
-import android.view.MotionEvent
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -128,18 +126,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Keep gamepad input observable in the shell; engine action mapping is not wired yet.
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.source and android.view.InputDevice.SOURCE_GAMEPAD ==
-            android.view.InputDevice.SOURCE_GAMEPAD) {
-            return true
-        }
-        return super.dispatchKeyEvent(event)
-    }
-
-    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        val isJoystick = event.source and android.view.InputDevice.SOURCE_JOYSTICK ==
-            android.view.InputDevice.SOURCE_JOYSTICK
-        return if (isJoystick) true else super.onGenericMotionEvent(event)
-    }
 }
