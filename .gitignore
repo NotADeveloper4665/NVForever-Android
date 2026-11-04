@@ -1,0 +1,17 @@
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+*.apk
+*.aab
+*.keystore
+*.jks
+# Never commit game installations, archives, saves, or extracted game data.
+Fallout New Vegas/
+FalloutNV.esm
+*.bsa
+*.ba2
+*.ess
+*.fos
