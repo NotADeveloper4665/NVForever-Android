@@ -23,6 +23,22 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up Rust Android target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Set up Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "ndk;27.2.12479018"
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build ARM64 native engine
+        run: cargo ndk -t arm64-v8a -P 26 -o app/src/main/jniLibs build --release --locked --lib -p nvforever --manifest-path upstream/NVForever/engine/Cargo.toml
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
