@@ -126,7 +126,7 @@ object GameDataImporter {
                 throw ImportException("Could not activate the imported game data")
             }
             deleteTree(backup)
-            return File(destination, "Data")
+            return destination
         } catch (t: Throwable) {
             deleteTree(staging)
             if (t is ImportException) throw t
