@@ -15,7 +15,17 @@ class EngineActivity : GameActivity() {
             ?: File(filesDir, "game-data").absolutePath
         val homeDir = File(filesDir, "nvforever").absolutePath
         val schemaDir = File(filesDir, "engine-schemas").absolutePath
-        copyAssetTree("", File(schemaDir))
+        val schemaRoot = File(schemaDir)
+        val schemaMarker = File(schemaRoot, ".schema-version")
+        val schemaVersion = BuildConfig.VERSION_CODE.toString()
+        if (schemaMarker.takeIf { it.isFile }?.readText() != schemaVersion ||
+            !File(schemaRoot, "fnv").isDirectory ||
+            !File(schemaRoot, "nif").isDirectory ||
+            !File(schemaRoot, "script/functions.json").isFile) {
+            schemaRoot.deleteRecursively()
+            copyAssetTree("", schemaRoot)
+            schemaMarker.writeText(schemaVersion)
+        }
 
         // Os.setenv changes this process environment, which Rust std::env reads after
         // the native library is started by GameActivity.
