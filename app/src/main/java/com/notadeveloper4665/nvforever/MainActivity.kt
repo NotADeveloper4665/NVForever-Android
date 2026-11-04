@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var selectedPath: TextView
     private lateinit var controllerStatus: TextView
     private lateinit var importButton: Button
+    private lateinit var launchButton: Button
     private val importCancelled = AtomicBoolean(false)
     private var importWorker: Thread? = null
     private var gameTree: Uri? = null
@@ -69,6 +70,7 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         inputManager.registerInputDeviceListener(this, null)
         refreshControllers()
         gameTree?.let { showInstallation(it) }
+        refreshLaunchAvailability()
     }
 
     override fun onPause() {
@@ -126,10 +128,11 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
             isEnabled = false
             setOnClickListener { startOrCancelImport() }
         }
-        val launch = Button(this).apply {
-            text = "ENGINE NOT INTEGRATED YET"
+        launchButton = Button(this).apply {
+            text = "LAUNCH NEW VEGAS"
             isEnabled = false
-            contentDescription = "Launch is unavailable until the native engine is integrated"
+            contentDescription = "Launch NVForever using the imported game data"
+            setOnClickListener { launchEngine() }
         }
 
         root.addView(title)
@@ -139,7 +142,7 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         root.addView(status)
         root.addView(importButton)
         root.addView(controllerStatus)
-        root.addView(launch)
+        root.addView(launchButton)
         setContentView(root)
     }
 
@@ -149,6 +152,7 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         runCatching { Uri.parse(saved) }.onSuccess { uri ->
             gameTree = uri
             showInstallation(uri)
+            refreshLaunchAvailability()
         }.onFailure {
             status.text = "Saved folder reference could not be restored. Select it again."
         }
@@ -216,9 +220,10 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
                     if (!isDestroyed) {
                         getSharedPreferences("installation", MODE_PRIVATE).edit()
                             .putString("imported_data_path", destination.absolutePath).apply()
-                        status.text = "Game data staged in private storage. Native engine launch is still pending."
+                        status.text = "Game data staged in private storage. The native engine will start with this copy."
                         importButton.text = "RE-IMPORT GAME DATA"
                         importButton.isEnabled = true
+                        launchButton.isEnabled = true
                     }
                 }
             } catch (e: Exception) {
@@ -238,6 +243,28 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         importCancelled.set(true)
         super.onDestroy()
     }
+
+    private fun refreshLaunchAvailability() {
+        val path = getSharedPreferences("installation", MODE_PRIVATE)
+            .getString("imported_data_path", null)
+        launchButton.isEnabled = path != null && java.io.File(path).isDirectory &&
+            java.io.File(path, "FalloutNV.esm").isFile
+    }
+
+    private fun launchEngine() {
+        val path = getSharedPreferences("installation", MODE_PRIVATE)
+            .getString("imported_data_path", null) ?: run {
+                status.text = "Import game data before launching."
+                return
+            }
+        if (!java.io.File(path, "FalloutNV.esm").isFile) {
+            status.text = "The imported game data is incomplete. Import it again."
+            launchButton.isEnabled = false
+            return
+        }
+        startActivity(Intent(this, EngineActivity::class.java).putExtra("data_dir", path))
+    }
+
     private fun isController(device: InputDevice?): Boolean {
         if (device == null) return false
         return device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
