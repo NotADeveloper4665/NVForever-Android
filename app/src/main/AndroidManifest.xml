@@ -8,7 +8,8 @@
             android:name=".EngineActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode"
             android:exported="false"
-            android:screenOrientation="sensorLandscape">
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.AppCompat.NoActionBar">
             <meta-data android:name="android.app.lib_name" android:value="nvforever" />
         </activity>
         <activity
