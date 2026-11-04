@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * SAF URIs remain URIs: this activity never treats a content:// URI as a
  * filesystem path and never writes into the selected game installation.
- * The native NVForever engine is not wired yet, so Launch stays disabled.
+ * The native NVForever engine runs in a dedicated GameActivity after game data is staged.
  */
 class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var status: TextView
@@ -212,8 +212,15 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         importWorker = Thread {
             try {
                 val destination = GameDataImporter.import(applicationContext, uri, importCancelled) { p ->
-                    runOnUiThread {
-                        if (!isDestroyed) status.text = "Importing game data: ${p.percent}% · ${p.filesCopied}/${p.totalFiles} files"
+                    // Limit main-thread UI work while a large archive tree is being copied.
+                    val now = SystemClock.uptimeMillis()
+                    val previous = lastUiUpdate.get()
+                    if (now - previous >= 150L || p.percent >= 100) {
+                        if (lastUiUpdate.compareAndSet(previous, now)) {
+                            runOnUiThread {
+                                if (!isDestroyed) status.text = "Importing game data: ${p.percent}% · ${p.filesCopied}/${p.totalFiles} files"
+                            }
+                        }
                     }
                 }
                 runOnUiThread {
