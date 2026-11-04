@@ -1,7 +1,12 @@
-# Upstream source
+# Engine source
 
-Primary engine source: https://github.com/RedZeroGotcha/NVForever-Android
+The engine is maintained in the writable fork:
 
-This Android port is intended to integrate the upstream NVForever clean-room engine. The upstream repository is not vendored in this initial commit. When it is imported, preserve its history where practical, retain all license and attribution files, and record the exact upstream commit in this file.
+https://github.com/NotADeveloper4665/NVForever-Android-Engine
 
-Do not import proprietary Fallout: New Vegas code or game data.
+It is included here as the `upstream/NVForever` Git submodule. The launcher/packaging app
+lives in this repository; Android-native Rust/Bevy runtime changes belong in the engine
+fork. The submodule is pinned to a specific engine commit for reproducible builds.
+
+Preserve upstream history, GPL-3.0-or-later licensing, and all attribution notices. Do not
+import proprietary Fallout: New Vegas code or game data.
