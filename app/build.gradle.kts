@@ -4,6 +4,10 @@ plugins {
 }
 
 android {
+    // Bundle the clean-room engine schemas as app assets; EngineActivity copies them
+    // into app-private storage before starting the native runtime.
+    sourceSets.getByName("main").assets.srcDir("../upstream/NVForever/schemas")
+
     namespace = "com.notadeveloper4665.nvforever"
     compileSdk = 35
 
@@ -29,6 +33,8 @@ android {
 }
 
 dependencies {
+    implementation("androidx.games:games-activity:4.4.2")
+    implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.10.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.core:core-ktx:1.15.0")
