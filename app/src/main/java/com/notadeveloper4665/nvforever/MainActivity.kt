@@ -15,6 +15,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.documentfile.provider.DocumentFile
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Android launcher and platform boundary.
@@ -27,6 +28,9 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
     private lateinit var status: TextView
     private lateinit var selectedPath: TextView
     private lateinit var controllerStatus: TextView
+    private lateinit var importButton: Button
+    private val importCancelled = AtomicBoolean(false)
+    private var importWorker: Thread? = null
     private var gameTree: Uri? = null
     private var lastInputSummary: String = "No controller input observed"
     private val inputManager by lazy { getSystemService(INPUT_SERVICE) as InputManager }
@@ -115,6 +119,11 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
             gravity = Gravity.CENTER
             setPadding(0, 22, 0, 0)
         }
+        importButton = Button(this).apply {
+            text = "IMPORT GAME DATA TO DEVICE"
+            isEnabled = false
+            setOnClickListener { startOrCancelImport() }
+        }
         val launch = Button(this).apply {
             text = "ENGINE NOT INTEGRATED YET"
             isEnabled = false
@@ -126,6 +135,7 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         root.addView(selectedPath)
         root.addView(choose)
         root.addView(status)
+        root.addView(importButton)
         root.addView(controllerStatus)
         root.addView(launch)
         setContentView(root)
@@ -158,6 +168,7 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
                 it.isFile && it.name?.lowercase(Locale.ROOT)?.endsWith(".bsa") == true
             }
             selectedPath.text = tree.name ?: uri.lastPathSegment ?: "Selected game folder"
+            importButton.isEnabled = master?.isFile == true && archives > 0 && importWorker?.isAlive != true
             status.text = when {
                 master?.isFile != true ->
                     "FalloutNV.esm not found. Select the game root or its Data folder."
@@ -175,6 +186,55 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         }
     }
 
+    /**
+     * Copies multi-gigabyte game data on a worker thread into app-private storage.
+     * This is a staging boundary for the path-based Rust VFS, not yet a game launch.
+     */
+    private fun startOrCancelImport() {
+        if (importWorker?.isAlive == true) {
+            importCancelled.set(true)
+            importButton.text = "CANCELLING…"
+            status.text = "Stopping import safely. The previous completed import is preserved."
+            return
+        }
+        val uri = gameTree ?: run { status.text = "Select the game folder first."; return }
+        importCancelled.set(false)
+        importButton.isEnabled = true
+        importButton.text = "CANCEL IMPORT"
+        status.text = "Preparing private game-data import…"
+        importWorker = Thread {
+            try {
+                val destination = GameDataImporter.import(applicationContext, uri, importCancelled) { p ->
+                    runOnUiThread {
+                        if (!isDestroyed) status.text = "Importing game data: ${p.percent}% · ${p.filesCopied}/${p.totalFiles} files"
+                    }
+                }
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        getSharedPreferences("installation", MODE_PRIVATE).edit()
+                            .putString("imported_data_path", destination.absolutePath).apply()
+                        status.text = "Game data staged in private storage. Native engine launch is still pending."
+                        importButton.text = "RE-IMPORT GAME DATA"
+                        importButton.isEnabled = true
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (!isDestroyed) {
+                        status.text = e.message ?: "Game-data import failed."
+                        importButton.text = "RETRY GAME DATA IMPORT"
+                        importButton.isEnabled = gameTree != null
+                    }
+                }
+            }
+        }.apply { name = "NVForever-GameDataImport"; start() }
+    }
+
+    override fun onDestroy() {
+        // Avoid leaving a large background copy running after the launcher is destroyed.
+        importCancelled.set(true)
+        super.onDestroy()
+    }
     private fun isController(device: InputDevice?): Boolean {
         if (device == null) return false
         return device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
