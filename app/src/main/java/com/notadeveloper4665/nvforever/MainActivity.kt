@@ -169,19 +169,15 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
             // Accept either the game root or the Data directory itself.
             val data = tree.findFile("Data")?.takeIf { it.isDirectory } ?: tree
-            val master = data.findFile("FalloutNV.esm")
-            val archives = data.listFiles().count {
-                it.isFile && it.name?.lowercase(Locale.ROOT)?.endsWith(".bsa") == true
+            val missing = GameDataImporter.REQUIRED_DATA_FILES.filter { name ->
+                data.findFile(name)?.let { it.isFile && it.length() > 0L } != true
             }
             selectedPath.text = tree.name ?: uri.lastPathSegment ?: "Selected game folder"
-            importButton.isEnabled = master?.isFile == true && archives > 0 && importWorker?.isAlive != true
-            status.text = when {
-                master?.isFile != true ->
-                    "FalloutNV.esm not found. Select the game root or its Data folder."
-                archives == 0 ->
-                    "FalloutNV.esm found, but no BSA archives were detected in Data. Check the installation."
-                else ->
-                    "Installation detected: FalloutNV.esm and $archives BSA archive(s). Access is read-only."
+            importButton.isEnabled = missing.isEmpty() && importWorker?.isAlive != true
+            status.text = if (missing.isEmpty()) {
+                "All ${GameDataImporter.REQUIRED_DATA_FILES.size} required base-game files detected. Source access is read-only."
+            } else {
+                "Missing or empty required files: ${missing.joinToString(", ")}"
             }
         } catch (e: SecurityException) {
             selectedPath.text = "Selected folder is no longer accessible"
@@ -227,10 +223,10 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
                     if (!isDestroyed) {
                         getSharedPreferences("installation", MODE_PRIVATE).edit()
                             .putString("imported_data_path", destination.absolutePath).apply()
-                        status.text = "Game data staged in private storage. The native engine will start with this copy."
+                        status.text = "Game data staged in app-private storage. The source installation remains untouched."
                         importButton.text = "RE-IMPORT GAME DATA"
                         importButton.isEnabled = true
-                        launchButton.isEnabled = true
+                        refreshLaunchAvailability()
                     }
                 }
             } catch (e: Exception) {
@@ -251,25 +247,49 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
         super.onDestroy()
     }
 
+    /**
+     * Resolve the synthetic install root expected by fnv-install:
+     * filesDir/game-install/Data and filesDir/nvforever must be siblings.
+     *
+     * Older APKs stored Data directly in filesDir/game-data. Move that completed import
+     * into the new layout on upgrade so users do not need to copy several GB again.
+     */
+    private fun resolveImportedGameRoot(): java.io.File? {
+        val prefs = getSharedPreferences("installation", MODE_PRIVATE)
+        val saved = prefs.getString("imported_data_path", null) ?: return null
+        val savedFile = java.io.File(saved)
+        val legacyData = java.io.File(filesDir, "game-data")
+        val installRoot = java.io.File(filesDir, "game-install")
+        val installData = java.io.File(installRoot, "Data")
+
+        val isLegacy = runCatching { savedFile.canonicalFile == legacyData.canonicalFile }.getOrDefault(false)
+        if (isLegacy && java.io.File(legacyData, "FalloutNV.esm").isFile) {
+            if (!java.io.File(installData, "FalloutNV.esm").isFile) {
+                if (!installRoot.exists() && !installRoot.mkdirs()) return null
+                if (!installData.exists() && !legacyData.renameTo(installData)) return null
+            }
+            if (java.io.File(installData, "FalloutNV.esm").isFile) {
+                prefs.edit().putString("imported_data_path", installRoot.absolutePath).apply()
+                return installRoot
+            }
+        }
+
+        return savedFile.takeIf { java.io.File(it, "Data/FalloutNV.esm").isFile }
+    }
+
     private fun refreshLaunchAvailability() {
-        val path = getSharedPreferences("installation", MODE_PRIVATE)
-            .getString("imported_data_path", null)
-        launchButton.isEnabled = path != null && java.io.File(path).isDirectory &&
-            java.io.File(path, "FalloutNV.esm").isFile
+        launchButton.isEnabled = resolveImportedGameRoot() != null
     }
 
     private fun launchEngine() {
-        val path = getSharedPreferences("installation", MODE_PRIVATE)
-            .getString("imported_data_path", null) ?: run {
-                status.text = "Import game data before launching."
-                return
-            }
-        if (!java.io.File(path, "FalloutNV.esm").isFile) {
-            status.text = "The imported game data is incomplete. Import it again."
+        val root = resolveImportedGameRoot() ?: run {
+            status.text = "Import game data before launching, or re-select the game folder."
             launchButton.isEnabled = false
             return
         }
-        startActivity(Intent(this, EngineActivity::class.java).putExtra("data_dir", path))
+        // Pass the install root, not Data itself. This keeps the game install sibling to
+        // NVForever's writable home and satisfies the engine's overlap guard.
+        startActivity(Intent(this, EngineActivity::class.java).putExtra("data_dir", root.absolutePath))
     }
 
     private fun isController(device: InputDevice?): Boolean {
