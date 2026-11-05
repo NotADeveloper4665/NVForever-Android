@@ -295,9 +295,44 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
             launchButton.isEnabled = false
             return
         }
-        // Pass the install root, not Data itself. This keeps the game install sibling to
-        // NVForever's writable home and satisfies the engine's overlap guard.
-        startActivity(Intent(this, EngineActivity::class.java).putExtra("data_dir", root.absolutePath))
+        // Validate the exact filesystem contract before entering native GameActivity.
+        // The original SAF folder remains read-only; only this private copy is used by the engine.
+        val dataDirectory = java.io.File(root, "Data")
+        if (!dataDirectory.isDirectory || !hasRequiredGameFiles(dataDirectory)) {
+            status.text = "Imported Fallout data is incomplete. Re-import the game's Data folder."
+            return
+        }
+
+        val home = java.io.File(filesDir, "nvforever")
+        if (!home.exists() && !home.mkdirs()) {
+            status.text = "Could not create NVForever's writable app-private directory."
+            return
+        }
+        val probe = java.io.File(home, ".write-check")
+        try {
+            probe.writeText("ok")
+            if (probe.readText() != "ok") {
+                status.text = "NVForever's save/configuration directory failed its write check."
+                return
+            }
+        } catch (e: Exception) {
+            status.text = "NVForever cannot write to app storage: ${e.message}"
+            return
+        } finally {
+            runCatching { probe.delete() }
+        }
+
+        // Pass the synthetic install root, not Data itself. Keep game-install and nvforever
+        // as siblings so fnv-install's path-overlap guard accepts the installation.
+        try {
+            startActivity(
+                Intent(this, EngineActivity::class.java)
+                    .putExtra("data_dir", root.canonicalPath)
+                    .putExtra("home_dir", home.canonicalPath)
+            )
+        } catch (e: Exception) {
+            status.text = "Could not start the native engine: ${e.message ?: e.javaClass.simpleName}"
+        }
     }
 
     private fun isController(device: InputDevice?): Boolean {
