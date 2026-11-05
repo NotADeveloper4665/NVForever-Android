@@ -268,13 +268,21 @@ class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
                 if (!installRoot.exists() && !installRoot.mkdirs()) return null
                 if (!installData.exists() && !legacyData.renameTo(installData)) return null
             }
-            if (java.io.File(installData, "FalloutNV.esm").isFile) {
+            if (hasRequiredGameFiles(installData)) {
                 prefs.edit().putString("imported_data_path", installRoot.absolutePath).apply()
                 return installRoot
             }
+            return null
         }
 
-        return savedFile.takeIf { java.io.File(it, "Data/FalloutNV.esm").isFile }
+        return savedFile.takeIf { hasRequiredGameFiles(java.io.File(it, "Data")) }
+    }
+
+    private fun hasRequiredGameFiles(dataDirectory: java.io.File): Boolean {
+        val entries = dataDirectory.listFiles()?.associateBy { it.name.lowercase(Locale.ROOT) } ?: return false
+        return GameDataImporter.REQUIRED_DATA_FILES.all { name ->
+            entries[name.lowercase(Locale.ROOT)]?.let { it.isFile && it.length() > 0L } == true
+        }
     }
 
     private fun refreshLaunchAvailability() {
