@@ -11,9 +11,13 @@ import java.io.File
  */
 class EngineActivity : GameActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        val dataDir = intent.getStringExtra("data_dir")
-            ?: File(filesDir, "game-data").absolutePath
-        val homeDir = File(filesDir, "nvforever").absolutePath
+        val dataRoot = File(intent.getStringExtra("data_dir") ?: File(filesDir, "game-data").absolutePath)
+        val dataDir = dataRoot.canonicalPath
+        val dataFiles = File(dataRoot, "Data")
+        check(dataFiles.isDirectory && File(dataFiles, "FalloutNV.esm").isFile) { "Fallout: New Vegas Data directory is missing or invalid" }
+        val homeRoot = File(intent.getStringExtra("home_dir") ?: File(filesDir, "nvforever").absolutePath)
+        if (!homeRoot.exists() && !homeRoot.mkdirs()) throw IllegalStateException("NVForever could not create writable app-private storage")
+        val homeDir = homeRoot.canonicalPath
         val schemaDir = File(filesDir, "engine-schemas").absolutePath
         val schemaRoot = File(schemaDir)
         val schemaMarker = File(schemaRoot, ".schema-version")
