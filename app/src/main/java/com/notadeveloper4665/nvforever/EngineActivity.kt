@@ -27,7 +27,11 @@ class EngineActivity : GameActivity() {
             !File(schemaRoot, "nif").isDirectory ||
             !File(schemaRoot, "script/functions.json").isFile) {
             schemaRoot.deleteRecursively()
-            copyAssetTree("", schemaRoot)
+            // The schemas asset root also contains README.md. Copy only runtime schema
+            // directories so non-schema files are never treated as schema trees.
+            copyAssetTree("fnv", File(schemaRoot, "fnv"))
+            copyAssetTree("nif", File(schemaRoot, "nif"))
+            copyAssetTree("script", File(schemaRoot, "script"))
             schemaMarker.writeText(schemaVersion)
         }
 
@@ -41,7 +45,7 @@ class EngineActivity : GameActivity() {
         super.onCreate(savedInstanceState)
     }
 
-    /** Copy bundled schemas once; never copy or modify the user's game files here. */
+    /** Copy one bundled schema directory; never copy or modify the user's game files here. */
     private fun copyAssetTree(assetPath: String, destination: File) {
         val children = assets.list(assetPath) ?: emptyArray()
         if (children.isEmpty()) {
