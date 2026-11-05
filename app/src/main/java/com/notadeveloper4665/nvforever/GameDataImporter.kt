@@ -10,7 +10,7 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Copies the user's selected Data tree into app-private storage.
+ * Copies the user's selected Data tree into app-private storage under a synthetic game root.
  *
  * Why this exists:
  * - NVForever's current VFS uses ordinary filesystem paths; SAF content:// URIs are not
@@ -24,6 +24,18 @@ import java.util.concurrent.atomic.AtomicBoolean
  * URI strings to the current path-based VFS.
  */
 object GameDataImporter {
+    // Keep in sync with fnv_install::REQUIRED_DATA_FILES. The native engine refuses
+    // to start unless every one of these base-game files is present and non-empty.
+    val REQUIRED_DATA_FILES = listOf(
+        "FalloutNV.esm",
+        "Fallout - Textures.bsa",
+        "Fallout - Textures2.bsa",
+        "Fallout - Meshes.bsa",
+        "Fallout - Voices1.bsa",
+        "Fallout - Sound.bsa",
+        "Fallout - Misc.bsa",
+        "Update.bsa"
+    )
     data class Progress(
         val bytesCopied: Long,
         val totalBytes: Long,
@@ -41,7 +53,7 @@ object GameDataImporter {
     class ImportException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
     /**
-     * Performs an atomic import into filesDir/game-data (the Data root).
+     * Performs an atomic import into filesDir/game-install/Data, returning game-install.
      * Call from a worker thread. Cancellation is checked between chunks and files.
      */
     fun import(
@@ -64,9 +76,9 @@ object GameDataImporter {
         val entries = enumerate(dataTree, cancelled)
         val totalBytes = entries.sumOf { it.length.coerceAtLeast(0L) }
         val totalFiles = entries.count { !it.isDirectory }
-        val staging = File(context.filesDir, "game-data.staging")
-        val destination = File(context.filesDir, "game-data")
-        val backup = File(context.filesDir, "game-data.previous")
+        val staging = File(context.filesDir, "game-install.staging")
+        val destination = File(context.filesDir, "game-install")
+        val backup = File(context.filesDir, "game-install.previous")
 
         // Fail before copying when the provider reports sizes and the app volume is too small.
         // Add a configurable safety margin because SAF metadata and filesystem allocation differ.
@@ -92,10 +104,11 @@ object GameDataImporter {
         var copiedBytes = 0L
         var copiedFiles = 0
         try {
+            val stagedData = File(staging, "Data")
             copyDirectory(
                 context = context,
                 source = dataTree,
-                target = staging,
+                target = stagedData,
                 cancelled = cancelled,
                 onFile = {
                     copiedFiles++
@@ -107,15 +120,16 @@ object GameDataImporter {
                 }
             )
 
-            // Validate the copied master before swapping directories.
-            if (!File(staging, "FalloutNV.esm").isFile) {
-                throw ImportException("Import finished without FalloutNV.esm; the source may have changed.")
+            // Validate every file the engine's install guard requires before activation.
+            val missing = REQUIRED_DATA_FILES.filter { name ->
+                val file = stagedData.listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                file?.isFile != true || file.length() <= 0L
             }
-            val archiveCount = staging.listFiles()?.count {
-                it.isFile && it.extension.equals("bsa", ignoreCase = true)
-            } ?: 0
-            if (archiveCount == 0) {
-                throw ImportException("No BSA archives were copied. The selected Data folder is incomplete.")
+            if (missing.isNotEmpty()) {
+                throw ImportException(
+                    "The imported game data is incomplete. Missing or empty required files: " +
+                        missing.joinToString(", ")
+                )
             }
 
             // Atomic directory swap on the same app-private filesystem. Restore the old
