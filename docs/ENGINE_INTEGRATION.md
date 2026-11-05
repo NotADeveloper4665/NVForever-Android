@@ -42,7 +42,7 @@ A successful cross-compile proves only that the native library compiles. A succe
 
 ## Storage contract
 
-The SAF URI is never passed to Rust as a POSIX path. The launcher copies the selected Data tree to app-private `filesDir/game-data`, then passes that path as `NVFOREVER_DATA`. NVForever's writable home is `filesDir/nvforever`. Bundled schemas are copied to `filesDir/engine-schemas`. The selected original game installation remains read-only and untouched.
+The SAF URI is never passed to Rust as a POSIX path. The launcher copies the selected Data tree to `filesDir/game-install/Data`, then passes the synthetic install root (`filesDir/game-install`) as `NVFOREVER_DATA`. NVForever's writable home is the sibling `filesDir/nvforever`; this separation is required by `fnv_install::check_separation`. Bundled schemas are copied to `filesDir/engine-schemas`. The selected original game installation remains read-only and untouched. The importer validates all eight non-empty files in `fnv_install::REQUIRED_DATA_FILES` before enabling launch.
 
 ## Known upstream limitations
 
